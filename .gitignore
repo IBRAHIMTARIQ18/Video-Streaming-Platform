@@ -1,3 +1,7 @@
+# temporary files
+.public/temp/
+.gitkeep
+
 # Logs
 logs
 *.log
