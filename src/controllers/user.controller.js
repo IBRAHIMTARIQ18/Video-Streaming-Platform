@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import User from "../models/user.model.js";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
 const registerUser = asyncHandler(async (req, res) => {
   // Get user data and files from frontend
@@ -9,8 +10,8 @@ const registerUser = asyncHandler(async (req, res) => {
   // check for image, check for avatar
   // upload images and avatar to cloudinary
   // create user object - create entry in database
-  // remove password and refresh token field from response
   // check for user creation success?
+  // remove password and refresh token field from response
   // return response
 
   const { fullName, username, email, password } = req.body;
@@ -32,4 +33,36 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 });
 
+// check for avatar and cover image
+const avatarLocalPath = req.files?.avatar[0]?.path;
+const coverImageLocalPath = req.files?.coverImage[0]?.path;
+
+if (!avatarLocalPath) {
+  throw new ApiError(400, "Avatar image is required");
+}
+
+// Upload image and avatar to Cloudinary
+const avatar = await uploadOnCloudinary(avatarLocalPath);
+const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+if (!avatar) {
+  throw new ApiError(400, "Avatar file is required");
+}
+
+// Create user object
+const user = await User.create({
+  fullName,
+  avatar: avatar.url,
+  coverImage: coverImage?.url || "",
+  email,
+  password,
+  username: username.toLowerCase(),
+});
+
+// Check if user creation was successful, also password and refresh token are removed.
+const createdUser = await User.findById(user._id).select(
+  "-password -refreshToken"
+);
+
+// Remove sensitive fields from response
 export { registerUser };
