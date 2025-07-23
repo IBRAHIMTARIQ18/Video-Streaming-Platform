@@ -59,10 +59,4 @@ const user = await User.create({
   username: username.toLowerCase(),
 });
 
-// Check if user creation was successful, also password and refresh token are removed.
-const createdUser = await User.findById(user._id).select(
-  "-password -refreshToken"
-);
-
-// Remove sensitive fields from response
 export { registerUser };
