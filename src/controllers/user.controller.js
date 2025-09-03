@@ -200,7 +200,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     );
 
     // Check if the user exists with the decoded token
-    const user = await User.findById(decodedToken?.id);
+    const user = await User.findById(decodedToken?._id);
 
     if (!user) {
       throw new ApiError(404, "Invalid refresh token: User not found");
