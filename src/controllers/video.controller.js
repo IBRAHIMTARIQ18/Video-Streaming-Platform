@@ -13,7 +13,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
   // validate video data
   if (!title?.trim() || !description?.trim()) {
-    throw new ApiError(400, "Title or description is missing");
+    throw new ApiError(400, "Title or description is required");
   }
 
   // check for video file and thumbnail image
@@ -32,11 +32,11 @@ const publishAVideo = asyncHandler(async (req, res) => {
   const videoFile = await uploadOnCloudinary(videoFileLocalPath);
   const thumbnailFile = await uploadOnCloudinary(thumbnailFileLocalPath);
 
-  if (!videoFile) {
+  if (!videoFile.url) {
     throw new ApiError(400, "Error while uploading video file to cloudinary");
   }
 
-  if (!thumbnailFile) {
+  if (!thumbnailFile.url) {
     throw new ApiError(
       400,
       "Error while uploading thumbnail image to cloudinary"
@@ -44,7 +44,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
   }
 
   // Find the owner of the video to save in the video object created after.
-  const VideoOwner = User.findById(req.user?._id);
+  const VideoOwner = await User.findById(req.user?._id);
 
   // Create video object
   const video = await Video.create({
@@ -73,7 +73,7 @@ const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
 
   // validate videoId
-  if (isValidObjectId(videoId)) {
+  if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "VideoId not valid");
   }
 
@@ -89,4 +89,51 @@ const getVideoById = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, video, "Video fetched successfully"));
 });
 
-export { publishAVideo, getVideoById };
+//TODO: update video details like title, description, thumbnail
+const updateVideo = asyncHandler(async (req, res) => {
+  // get video Id from params/url and video data from body
+  const { videoId } = req.params;
+  const { title, description } = req.body;
+
+  // Validate videoId object but not title and desc because user may want to change title only or description only by validating we will restrict the user to update them both evertime update runs.
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "VideoId is invalid");
+  }
+
+  // Check if video already exists through videoId and validate it
+  const video = await Video.findById(videoId);
+
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+
+  // Prepare update object and set fields in updated object
+  const updateFields = {};
+
+  if (title?.trim()) updateFields.title = title;
+  if (description?.trim()) updateFields.description = description;
+
+  // Check if a user has sent the a new file to update thumbnail
+  if (req.file?.path) {
+    const thumbnail = await uploadOnCloudinary(req.file.path);
+    if (!thumbnail?.url) {
+      throw new ApiError(400, "Error while uploading thumbnail");
+    }
+    updateFields.thumbnail = thumbnail.url;
+  }
+
+  // Update Video
+  const updatedVideo = await Video.findByIdAndUpdate(
+    videoId,
+    { $set: updateFields },
+    { new: true }
+  ).populate("owner", "name email");
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, updatedVideo, "Video details updated Successfully")
+    );
+});
+
+export { publishAVideo, getVideoById, updateVideo };
