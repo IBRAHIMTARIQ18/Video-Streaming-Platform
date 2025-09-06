@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  getAllVideos,
   publishAVideo,
   getVideoById,
   updateVideo,
