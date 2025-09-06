@@ -113,7 +113,7 @@ const updateVideo = asyncHandler(async (req, res) => {
   if (title?.trim()) updateFields.title = title;
   if (description?.trim()) updateFields.description = description;
 
-  // Check if a user has sent the a new file to update thumbnail
+  // Check if a user has sent a new file to update thumbnail
   if (req.file?.path) {
     const thumbnail = await uploadOnCloudinary(req.file.path);
     if (!thumbnail?.url) {
@@ -136,4 +136,30 @@ const updateVideo = asyncHandler(async (req, res) => {
     );
 });
 
-export { publishAVideo, getVideoById, updateVideo };
+//TODO: delete video
+const deleteVideo = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+
+  // validate
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "VideoId is invalid");
+  }
+
+  //Find video by its videoId and validate it
+  const video = await Video.findOne({
+    _id: videoId,
+    owner: req.user?._id,
+  });
+
+  if (!video) {
+    throw new ApiError(404, "Video not found or not authorized to delete");
+  }
+
+  await video.deleteOne();
+
+  return res
+    .status(204)
+    .json(new ApiResponse(204, null, "Video is deleted successfully"));
+});
+
+export { publishAVideo, getVideoById, updateVideo, deleteVideo };
