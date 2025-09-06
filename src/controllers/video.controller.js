@@ -162,4 +162,40 @@ const deleteVideo = asyncHandler(async (req, res) => {
     .json(new ApiResponse(204, null, "Video is deleted successfully"));
 });
 
-export { publishAVideo, getVideoById, updateVideo, deleteVideo };
+//TODO: toggle publish status functionality
+const togglePublishStatus = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+
+  // validate the videoId
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "VideoId is invalid");
+  }
+
+  // Find video by Id and validate it
+  const video = await Video.findOne({ _id: videoId, owner: req.user?._id });
+
+  if (!video) {
+    throw new ApiError(404, "Video not found or unauthorized");
+  }
+
+  video.isPublished = !video.isPublished;
+  await video.save();
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        video,
+        `Video is ${video.isPublished ? "published" : "unpublished"} successfully`
+      )
+    );
+});
+
+export {
+  publishAVideo,
+  getVideoById,
+  updateVideo,
+  deleteVideo,
+  togglePublishStatus,
+};
