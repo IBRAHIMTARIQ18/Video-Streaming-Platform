@@ -192,7 +192,101 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     );
 });
 
+//TODO: get all videos based on query, sort, pagination
+const getAllVideos = asyncHandler(async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    query = "",
+    sortBy = "createdAt",
+    sortType = "desc",
+    userId,
+  } = req.query;
+
+  // Validate sort inputs (whitelist to prevent injection / invalid fields)
+  const ALLOWED_SORT_FIELDS = ["createdAt", "views", "duration", "title"];
+
+  if (!ALLOWED_SORT_FIELDS.includes(sortBy)) sortBy = "createdAt";
+
+  const sortDirection = sortType === "asc" ? 1 : -1;
+
+  // Build base match (public feed shows only published)
+  const match = {};
+
+  // If caller is filtering by owner, we’ll set that; otherwise default to published only
+  if (userId) {
+    if (!mongoose.isValidObjectId(userId)) {
+      throw new ApiError(400, "userId is invalid");
+    }
+    match.owner = new mongoose.Types.ObjectId(userId);
+
+    // if the requester is looking at someone else’s profile, keep only published
+    if (!req.user || req.user._id.toString() !== userId.toString()) {
+      match.isPublished = true;
+    }
+  } else {
+    // No owner filter => public feed
+    match.isPublished = true;
+  }
+
+  // Search by text (title/description) if query is provided
+  if (query && query.trim()) {
+    const q = query.trim();
+    match.$or = [
+      { title: { $regex: q, $options: "i" } },
+      { description: { $regex: q, $options: "i" } },
+    ];
+  }
+
+  // Build aggregation pipeline
+  const pipeline = [
+    { $match: match },
+    // Sort early for stable pagination. Add _id as a tiebreaker.
+    { $sort: { [sortBy]: sortDirection, _id: 1 } },
+    // Join owner info because aggregatePaginate doesn't populate for us
+    {
+      $lookup: {
+        from: "users", // collection name for User model
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          { $project: { _id: 1, name: 1, email: 1, username: 1, avatar: 1 } },
+        ],
+      },
+    },
+    { $unwind: "$owner" },
+    // Shape the output (avoid returning internal fields you don't need)
+    {
+      $project: {
+        videoFile: 1,
+        thumbnail: 1,
+        title: 1,
+        description: 1,
+        duration: 1,
+        views: 1,
+        isPublished: 1,
+        createdAt: 1,
+        owner: 1,
+      },
+    },
+  ];
+
+  // Run paginated aggregation
+  const aggregate = Video.aggregate(pipeline);
+
+  const result = await Video.aggregatePaginate(aggregate, {
+    page,
+    limit,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Videos fetched successfully"));
+});
+
 export {
+  getAllVideos,
   publishAVideo,
   getVideoById,
   updateVideo,
