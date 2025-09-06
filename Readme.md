@@ -1,6 +1,6 @@
 # Combined Video Streaming & Twitter Platform's Backend
 
-# 🎥📢 VidTwit Backend
+# 🎥📢 TwitVidStream Backend
 
 A **production-ready Node.js backend** combining **video streaming/sharing** features (like YouTube) with **social microblogging** features (like Twitter).  
 Built with **Express, MongoDB (Mongoose), JWT authentication, and media handling**.  
